@@ -1,0 +1,101 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT
+
+name: Test GPG Signing Fix
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-gpg-signing:
+    name: 'Test GPG Signing Fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create Test Files
+        run: |
+          mkdir -p test-files
+          echo "Test file 1" > test-files/file1.txt
+          echo "Test file 2" > test-files/file2.txt
+          echo "Test file 3" > test-files/file3.txt
+
+      # Step 1: Import GPG key
+      - name: Import GPG Key
+        id: import-gpg
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+
+      # Step 2: Test Option 1 - Using the sign parameter of crazy-max/ghaction-import-gpg
+      - name: Test Option 1 - Using sign parameter
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          fingerprint: ${{ steps.import-gpg.outputs.fingerprint }}
+          workdir: test-files
+          sign: true
+
+      # Step 3: Verify signatures created by Option 1
+      - name: Verify Option 1 Signatures
+        run: |
+          echo "Verifying signatures created by Option 1:"
+          for f in $(find test-files/ -name "*.sig"); do
+            echo "Verifying signature $f"
+            gpg --verify $f
+            echo "Exit code: $?"
+          done
+
+      # Step 4: Create a new test directory for Option 2
+      - name: Create Test Files for Option 2
+        run: |
+          mkdir -p test-files-option2
+          echo "Test file 1 for Option 2" > test-files-option2/file1.txt
+          echo "Test file 2 for Option 2" > test-files-option2/file2.txt
+          echo "Test file 3 for Option 2" > test-files-option2/file3.txt
+
+      # Step 5: Test Option 2 - Using a script with GPG_TTY and batch mode
+      - name: Test Option 2 - Using script with GPG_TTY and batch mode
+        run: |
+          export GPG_TTY=/dev/null
+          for f in $(find test-files-option2/); do 
+            if [ ! -d $f ]; then 
+              echo "Signing file $f with Option 2"
+              echo "${{ secrets.PASSPHRASE }}" | gpg --batch --yes --passphrase-fd 0 --no-tty --detach-sign $f
+              echo "Exit code: $?"
+            fi
+          done
+
+      # Step 6: Verify signatures created by Option 2
+      - name: Verify Option 2 Signatures
+        run: |
+          echo "Verifying signatures created by Option 2:"
+          for f in $(find test-files-option2/ -name "*.gpg"); do
+            echo "Verifying signature $f"
+            gpg --verify $f
+            echo "Exit code: $?"
+          done
+
+      # Step 7: Summarize results
+      - name: Summarize Results
+        run: |
+          echo "Summary of GPG Signing Tests:"
+          echo "Option 1 (Using sign parameter):"
+          echo "  - Files signed: $(find test-files/ -name '*.sig' | wc -l)"
+          echo "Option 2 (Using script with GPG_TTY and batch mode):"
+          echo "  - Files signed: $(find test-files-option2/ -name '*.gpg' | wc -l)"
+          echo ""
+          echo "Recommendation:"
+          if [ $(find test-files/ -name '*.sig' | wc -l) -gt 0 ]; then
+            echo "Option 1 worked successfully and is recommended."
+          elif [ $(find test-files-option2/ -name '*.gpg' | wc -l) -gt 0 ]; then
+            echo "Option 2 worked successfully and is recommended."
+          else
+            echo "Both options failed. Further investigation is needed."
+          fi
