@@ -95,34 +95,9 @@ jobs:
       Bucket: ${{ vars.S3_INTEGRATION_BUCKET }}
       DistributorName: ${{ vars.SSM_TEST_DISTRIBUTOR_NAME }}
 
-  BuildAndUploadITAR:
-    uses: ./.github/workflows/test-build.yml
-    secrets: inherit
-    permissions:
-      id-token: write
-      contents: read
-    with:
-      BucketKey: "integration-test/binary/${{ github.sha }}"
-      PackageBucketKey: "integration-test/packaging/${{ github.sha }}"
-      Region: "us-gov-east-1"
-      TerraformAWSAssumeRole: ${{ vars.TERRAFORM_AWS_ASSUME_ROLE_ITAR }}
-      Bucket: ${{ vars.S3_INTEGRATION_BUCKET_ITAR }}
-
-  BuildAndUploadCN:
-    uses: ./.github/workflows/test-build.yml
-    secrets: inherit
-    permissions:
-      id-token: write
-      contents: read
-    with:
-      BucketKey: "integration-test/binary/${{ github.sha }}"
-      PackageBucketKey: "integration-test/packaging/${{ github.sha }}"
-      Region: "cn-north-1"
-      TerraformAWSAssumeRole: ${{ vars.TERRAFORM_AWS_ASSUME_ROLE_CN }}
-      Bucket: ${{ vars.S3_INTEGRATION_BUCKET_CN }}
 
   StartIntegrationTests:
-    needs: [ BuildAndUploadPackages, BuildAndUploadITAR, BuildAndUploadCN, BuildDocker ]
+    needs: [ BuildAndUploadPackages, BuildDocker ]
     if: ${{ github.event_name == 'push' || inputs.test-image-before-upload }}
     runs-on: ubuntu-latest
     steps:
@@ -131,7 +106,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   StartApplicationSignalsE2ETests:
-    needs: [ BuildAndUploadPackages, BuildAndUploadITAR, BuildAndUploadCN, BuildDocker ]
+    needs: [ BuildAndUploadPackages, BuildDocker ]
     # Workflow only runs against main
     if: ${{ github.event_name == 'push' || inputs.test-image-before-upload }}
     runs-on: ubuntu-latest

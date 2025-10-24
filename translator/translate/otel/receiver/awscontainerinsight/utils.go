@@ -4,6 +4,7 @@
 package awscontainerinsight
 
 import (
+	"log"
 	"time"
 
 	"go.opentelemetry.io/collector/confmap"
@@ -38,7 +39,27 @@ func GetAcceleratedComputeGPUMetricsCollectionInterval(conf *confmap.Conf) time.
 }
 
 func IsHighFrequencyGPUMetricsEnabled(conf *confmap.Conf) bool {
-	return EnhancedContainerInsightsEnabled(conf) &&
-		AcceleratedComputeMetricsEnabled(conf) &&
-		GetAcceleratedComputeGPUMetricsCollectionInterval(conf) < DefaultMetricsCollectionInterval
+	enhancedEnabled := EnhancedContainerInsightsEnabled(conf)
+	acceleratedEnabled := AcceleratedComputeMetricsEnabled(conf)
+
+	// Check if accelerated_compute_gpu_metrics_collection_interval exists in config
+	gpuMetricsCollectionIntervalKey := common.ConfigKey(common.LogsKey, common.MetricsCollectedKey, common.KubernetesKey, common.AcceleratedComputeGPUMetricsCollectionInterval)
+	gpuMetricsCollectionIntervalExists := conf.IsSet(gpuMetricsCollectionIntervalKey)
+
+	// Get the collection interval
+	gpuMetricsCollectionInterval := GetAcceleratedComputeGPUMetricsCollectionInterval(conf)
+	isHighFrequency := gpuMetricsCollectionInterval < DefaultMetricsCollectionInterval
+
+	// Log the configuration details
+	if gpuMetricsCollectionIntervalExists {
+		// Log that the config exists and its value
+		log.Printf("[DEBUG] accelerated_compute_gpu_metrics_collection_interval exists with value: %s", gpuMetricsCollectionInterval.String())
+	} else {
+		log.Printf("[DEBUG] accelerated_compute_gpu_metrics_collection_interval does not exist, using default: %s", DefaultMetricsCollectionInterval.String())
+	}
+
+	log.Printf("[DEBUG] IsHighFrequencyGPUMetricsEnabled: enhancedEnabled=%v acceleratedEnabled=%v isHighFrequency=%v",
+		enhancedEnabled, acceleratedEnabled, isHighFrequency)
+
+	return enhancedEnabled && acceleratedEnabled && isHighFrequency
 }

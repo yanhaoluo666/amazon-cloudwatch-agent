@@ -5,6 +5,7 @@ package containerinsights
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -62,6 +63,7 @@ func (t *translator) Translate(conf *confmap.Conf) (*common.ComponentTranslators
 
 	highFrequencyGPUMetricsEnabled := t.pipelineName == ciPipelineName && awscontainerinsight.IsHighFrequencyGPUMetricsEnabled(conf)
 
+	log.Printf("translator highFrequencyGPUMetricsEnabled:        %v", highFrequencyGPUMetricsEnabled)
 	// create processor map with
 	// - batch processor (with timeout override if high-frequency GPU metrics are enabled)
 	// - filter processor to drop prometheus metadata
